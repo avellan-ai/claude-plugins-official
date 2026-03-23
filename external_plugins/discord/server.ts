@@ -397,9 +397,13 @@ async function fetchTextChannel(id: string) {
 // from. DM channel ID ≠ user ID, so we inspect the fetched channel's type.
 // Thread → parent lookup mirrors the inbound gate.
 async function fetchAllowedChannel(id: string) {
-  const ch = await fetchTextChannel(id)
+  let ch = await fetchTextChannel(id)
   const access = loadAccess()
   if (ch.type === ChannelType.DM) {
+    // Partial DM channels may have undefined recipientId — fetch to hydrate
+    if (ch.partial || ch.recipientId === null) {
+      ch = await ch.fetch()
+    }
     if (access.allowFrom.includes(ch.recipientId)) return ch
   } else {
     const key = ch.isThread() ? ch.parentId ?? ch.id : ch.id
