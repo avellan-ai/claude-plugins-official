@@ -400,11 +400,16 @@ async function fetchAllowedChannel(id: string) {
   let ch = await fetchTextChannel(id)
   const access = loadAccess()
   if (ch.type === ChannelType.DM) {
-    // Partial DM channels may have undefined recipientId — fetch to hydrate
-    if (ch.partial || ch.recipientId === null) {
-      ch = await ch.fetch()
+    // Partial DM channels may have undefined/null recipientId.
+    // ch.fetch() delegates to createDM(recipientId) which fails when recipientId is missing.
+    // Use client.channels.fetch with force:true to hydrate from Discord API by channel ID instead.
+    if (ch.partial || ch.recipientId == null) {
+      const fetched = await client.channels.fetch(id, { force: true })
+      if (fetched?.type === ChannelType.DM) {
+        ch = fetched
+      }
     }
-    if (access.allowFrom.includes(ch.recipientId)) return ch
+    if (ch.recipientId != null && access.allowFrom.includes(ch.recipientId)) return ch
   } else {
     const key = ch.isThread() ? ch.parentId ?? ch.id : ch.id
     if (key in access.groups) return ch
